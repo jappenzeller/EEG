@@ -3,3 +3,4 @@ DataKaggle/
 *.pkl
 videos/
 Charts/
+kaggle.json
