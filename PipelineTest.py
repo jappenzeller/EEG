@@ -6,8 +6,11 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, GroupKFold, StratifiedGroupKFold
 import matplotlib.pyplot as plt
+from joblib import Memory
+
+dmemory = Memory(location='cache', verbose=0)
 
 # Kaggle API for submission
 from kaggle.api.kaggle_api_extended import KaggleApi
@@ -28,17 +31,18 @@ if __name__ == '__main__':
  #       print(f"Loaded full-window model from {full_path}")
 
     param_grid = {
-        'rf__n_estimators':     [1000, 2000, 3000, 4000,5000,7000],
-        'rf__min_samples_split': [4,5,6,8,9,10]
+        'rf__n_estimators':     [3000, 4000,5000,6000],
+        'rf__min_samples_split': [5,6,7,8]
     }
     
     if True:
         print(f"Training")
+
         X_full,  y_full  = build_feature_label_matrix(
             data_root, subject)
         grid_full = GridSearchCV(
             build_kaggle_pipeline(), param_grid,
-            scoring='roc_auc', cv=5, n_jobs=-1,
+            scoring='roc_auc', cv=4, n_jobs=-1,
             verbose=2
         )
         grid_full.fit(X_full, y_full)
