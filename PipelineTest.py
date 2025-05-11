@@ -15,7 +15,7 @@ dmemory = Memory(location='cache', verbose=0)
 # Kaggle API for submission
 from kaggle.api.kaggle_api_extended import KaggleApi
 
-from SeizureDetectionPipelines import plot_gridsearch_heatmap,build_feature_label_matrix,build_kaggle_pipeline
+from Deprecate.SeizureDetectionPipelines import plot_gridsearch_heatmap,build_feature_label_matrix,build_kaggle_pipeline
 
 if __name__ == '__main__':
     
@@ -30,11 +30,17 @@ if __name__ == '__main__':
  #       full_model = joblib.load(full_path)
  #       print(f"Loaded full-window model from {full_path}")
 
-    param_grid = {
+    param_grid_old = {
         'rf__n_estimators':     [3000, 4000,5000,6000],
         'rf__min_samples_split': [5,6,7,8]
     }
     
+    param_grid = {
+        'xgb__max_depth':   [4,6,8],
+        'xgb__learning_rate':[0.01],
+        'xgb__subsample':   [0.6],
+    }
+
     if True:
         print(f"Training")
 
@@ -48,8 +54,8 @@ if __name__ == '__main__':
         grid_full.fit(X_full, y_full)
         plot_gridsearch_heatmap(
             grid_full,
-            'rf__n_estimators',
-            'rf__min_samples_split'
+            'xgb__max_depth',
+            'xgb__learning_rate'
         )
     if False:
     #if grid_full_path.exists():

@@ -1,7 +1,7 @@
 from pathlib import Path
 import re
 import numpy as np
-import SeizureDetectionPipeline
+import Deprecate.SeizureDetectionPipeline as SeizureDetectionPipeline
 
 def load_subject_sequences(root_dir: str, subject: str):
     """
