@@ -1,53 +1,74 @@
-function animate_ictal_lines(data_folder)
-    % Animate line plots for each EEG channel across Dog_1 ictal segments
-    % Usage: animate_ictal_lines('H:\Data\PythonDNU\EEG\DataKaggle\Dog_1')
+function animateAllIctalPatient1(subjectDir, updatesPerSecond)
+% animateAllIctalPatient1  Animate Patient_1’s continuous ictal data.
+%
+%   animateAllIctalPatient1()  
+%       uses default Patient_1 folder and 10 updates/sec.
+%   animateAllIctalPatient1(subjectDir)  
+%       uses your folder and 10 updates/sec.
+%   animateAllIctalPatient1(subjectDir, updatesPerSecond)  
+%       lets you choose how many frames per second to draw.
+%
+% Each frame draws a progressively longer slice of the data,
+% simulating real-time playback.
 
-    if nargin < 1
-        data_folder = uigetdir(pwd, 'Select Dog_1 Folder');
-        if data_folder == 0, return; end
+    if nargin<1 || isempty(subjectDir)
+        subjectDir = fullfile('H:','Data','PythonDNU','EEG','DataKaggle', ...
+                              'Patient_1');
+    end
+    if nargin<2 || isempty(updatesPerSecond)
+        updatesPerSecond = 10;  % draw 10 frames per second
     end
 
-    % Get all ictal segment files and sort by index
-    files = dir(fullfile(data_folder, 'Dog_1_ictal_segment_*.mat'));
-    indices = arrayfun(@(f) sscanf(f.name, 'Dog_1_ictal_segment_%d.mat'), files);
-    [~, sorted_idx] = sort(indices);
-    files = files(sorted_idx);
+    % --- Load & concatenate all segments ---
+    data = loadPatient1Ictal(subjectDir);   % nCh x totalSamples
 
-    % Setup figure
-    hFig = figure('Name', 'Dog_1 Ictal Segment Line Animation', 'NumberTitle', 'off');
+    % figure out fs from the first segment file
+    files = dir(fullfile(subjectDir,'Patient_1_ictal_segment_*.mat'));
+    tmp   = load(fullfile(subjectDir, files(1).name), 'data');
+    fs    = size(tmp.data,2);               % samples per second
 
-    for k = 1:length(files)
-        file = fullfile(data_folder, files(k).name);
-        raw = load(file);
+    [nCh, totalSamples] = size(data);
+    t = (0:(totalSamples-1)) / fs;
 
-        % Load EEG data (flat or nested)
-        if isfield(raw, 'data')
-            eeg_data = double(raw.data);
-        else
-            f = fieldnames(raw);
-            eeg_data = double(raw.(f{1}).data);
+    % vertical offset so channels don’t overlap
+    ampMax = max(abs(data(:)));
+    offset = ampMax * 1.5;
+
+    % prepare figure & line handles
+    figure; hold on;
+    lines = gobjects(nCh,1);
+    for ch = 1:nCh
+        lines(ch) = plot(nan, nan, 'LineWidth', 1);
+    end
+    xlabel('Time (s)'); ylabel('Channel + offset');
+    title(sprintf('Patient\\_1 Ictal Animation (%d channels, fs=%d Hz)', nCh, fs));
+    ylim([ -offset, (nCh-1)*offset + offset ]);
+    xlim([0, totalSamples/fs]);
+    grid on;
+
+    % determine chunk size for each update
+    chunkSize = max(1, floor(fs/updatesPerSecond));
+    pauseTime = chunkSize / fs;
+
+    % animate
+    for idx = chunkSize : chunkSize : totalSamples
+        % update each channel’s data
+        for ch = 1:nCh
+            set(lines(ch), ...
+                'XData', t(1:idx), ...
+                'YData', data(ch,1:idx) + (ch-1)*offset);
         end
-
-        % Plot line for each channel
-        clf(hFig);
-        [n_channels, n_samples] = size(eeg_data);
-        offset = max(abs(eeg_data(:))) * 1.2;
-
-        hold on;
-        for ch = 1:n_channels
-            plot((1:n_samples), eeg_data(ch, :) + (ch-1)*offset);
-        end
-        hold off;
-
-        yticks((0:n_channels-1)*offset);
-        yticklabels(arrayfun(@(x) sprintf('Ch%d', x), 1:n_channels, 'UniformOutput', false));
-        xlabel('Time (samples)');
-        ylabel('Channels (stacked)');
-        title(sprintf('Dog_1 Ictal Segment %d', indices(sorted_idx(k))));
-        axis tight;
-
-        pause(1);  % Pause 1 second per frame
+        drawnow;
+        pause(pauseTime);
     end
 
-    fprintf('✅ Line animation complete. Displayed %d segments.\n', length(files));
+    % draw final remainder if any
+    if mod(totalSamples, chunkSize) ~= 0
+        for ch = 1:nCh
+            set(lines(ch), ...
+                'XData', t, ...
+                'YData', data(ch,:) + (ch-1)*offset);
+        end
+        drawnow;
+    end
 end

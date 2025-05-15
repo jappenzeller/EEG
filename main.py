@@ -47,8 +47,8 @@ def main():
 
         # Determine sampling rate
         if subject.lower().startswith('patient'):
-            fs = 5000
-            window_sec = .1
+            fs = 500
+            window_sec = 1
         elif subject.lower().startswith('dog'):
             fs = 400
             window_sec = 1
