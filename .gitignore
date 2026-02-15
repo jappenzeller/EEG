@@ -1,2 +1,38 @@
-.env
+
+!data/**/.gitkeep
+# AWS credentials (never commit)
+# Data files (keep structure, not data)
+# IDE
+# OS
+# Session configs with personal info
+*$py.class
+*.egg
+*.egg-info/
+*.py[cod]
+*.swp
 .aws/
+.aws/credentials
+.coverage
+.DS_Store
+.eggs/
+.env
+.idea/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.vscode/
+__pycache__/
+build/
+configs/local_*.yaml
+data/processed/**/*
+data/raw/**/*.bdf
+data/raw/**/*.npy
+data/raw/**/*.npz
+data/raw/**/*.txt
+data/results/**/*
+dist/
+env/
+htmlcov/
+Thumbs.db
+venv/

@@ -1,0 +1,116 @@
+# OpenBCI EEG Pipeline Configuration
+# Copy to configs/local_config.yaml and customize for your setup.
+
+board:
+  serial_port: null           # null = auto-detect; or "/dev/ttyUSB0", "COM3", etc.
+  board_id: 2                 # 2 = Cyton+Daisy (16-ch)
+  sample_rate: 125
+  channel_names:
+    - Fp1
+    - Fp2
+    - F3
+    - F4
+    - F7
+    - F8
+    - T7
+    - T8
+    - C3
+    - C4
+    - Cz
+    - Pz
+    - P3
+    - P4
+    - O1
+    - O2
+  ring_order:
+    - Fp1
+    - F7
+    - F3
+    - C3
+    - T7
+    - P3
+    - O1
+    - Pz
+    - O2
+    - P4
+    - T8
+    - C4
+    - F4
+    - F8
+    - Fp2
+    - Cz
+  buffer_size: 45000          # ~6 min ring buffer
+  log_level: 0                # 0=off, 1=trace, 2=debug
+
+  # Channel scaling subsets (nested, for Phase 4 analysis)
+  # Each subset maintains spatial contiguity in the ring topology
+  scaling_subsets:
+    # 16-ch: Full montage (ring_order above)
+    16: null  # Uses full ring_order
+    # 8-ch: Matches paper's CHB-MIT baseline
+    8:
+      - Fp1
+      - Fp2
+      - F3
+      - F4
+      - F7
+      - F8
+      - T7
+      - T8
+    # 4-ch: Left hemisphere chain (spatially contiguous)
+    # NOTE: Original plan had Fp1/Fp2/F7/F8 but F7→F8 jumps across scalp.
+    # Using left hemisphere instead for ring topology coherence.
+    4:
+      - Fp1
+      - F7
+      - T7
+      - C3
+
+preprocess:
+  notch_freq: 60.0            # 60 Hz (US) or 50 Hz (EU)
+  notch_quality: 30.0
+  bandpass_low: 0.5
+  bandpass_high: 50.0
+  filter_method: fir
+  artifact_threshold_uv: 150.0
+  ica_n_components: 15
+
+pn:
+  lambda_a: 0.1               # Excitatory decay rate
+  lambda_c: 0.05              # Inhibitory growth rate
+  rms_window_sec: 0.1         # 100ms RMS window
+  initial_a: 0.5
+  initial_c: 0.5
+  solver: euler                # "euler" (fast) or "rk4" (accurate)
+
+# V4 encoding: Multi-scale band power
+# Maps frequency bands to PN parameters based on neurophysiology:
+#   a = beta + gamma (excitatory)
+#   b = alpha coherence (thalamocortical coupling)
+#   c = delta + theta (inhibitory)
+v4:
+  window_sec: 2.0             # PSD window length
+  step_sec: 0.5               # Sliding window step
+  coherence_mode: global      # "global" or "per_channel"
+  bands:
+    delta: [0.5, 4.0]
+    theta: [4.0, 8.0]
+    alpha: [8.0, 13.0]
+    beta: [13.0, 30.0]
+    gamma: [30.0, 50.0]       # Capped at 50 Hz (Nyquist - margin)
+
+aws:
+  bucket: qdnu-eeg-data
+  region: us-east-1
+  raw_prefix: raw
+  processed_prefix: processed
+  results_prefix: results
+  lambda_function: qdnu-process-eeg
+  dynamodb_table: qdnu-eeg-sessions
+
+session:
+  subject_id: S000
+  session_type: resting
+  duration_sec: 300.0
+  data_dir: data
+  auto_upload: false

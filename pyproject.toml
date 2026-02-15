@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openbci-eeg"
+version = "0.1.0"
+description = "OpenBCI Cyton+Daisy EEG acquisition and preprocessing pipeline for QDNU"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+dependencies = [
+    "brainflow>=5.10.0",
+    "mne>=1.6.0",
+    "numpy>=1.24.0",
+    "scipy>=1.11.0",
+    "matplotlib>=3.7.0",
+    "pandas>=2.0.0",
+    "boto3>=1.28.0",
+    "pyyaml>=6.0",
+    "click>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+]
+realtime = [
+    "pylsl>=1.16.0",
+]
+quantum = [
+    "qiskit>=1.0.0",
+]
+
+[project.scripts]
+openbci-eeg = "openbci_eeg.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "hardware: requires physical OpenBCI board",
+    "aws: requires AWS credentials",
+    "slow: long-running tests",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
