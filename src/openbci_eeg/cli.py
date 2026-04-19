@@ -41,45 +41,92 @@ def main(ctx: click.Context, config: str | None, verbose: bool) -> None:
 @click.option("--duration", "-d", default=60.0, help="Recording duration in seconds.")
 @click.option("--subject", "-s", default="S000", help="Subject ID.")
 @click.option("--session-type", "-t", default="resting", help="Session type.")
-@click.option("--port", "-p", default=None, help="Serial port (auto-detect if omitted).")
+@click.option("--port", "-p", default="COM4", help="Serial port (default: COM4).")
 @click.option("--synthetic", is_flag=True, help="Use synthetic board (no hardware).")
 @click.pass_context
 def record(ctx, duration, subject, session_type, port, synthetic):
     """Record an EEG session."""
-    from openbci_eeg.acquisition.board import connect, record as do_record, disconnect
+    from openbci_eeg.acquisition.board import Board, RealtimeBoardConfig, BoardMode, record as do_record
 
     config = ctx.obj["config"]
     config.session.subject_id = subject
     config.session.session_type = session_type
     config.session.duration_sec = duration
 
-    board = connect(config, serial_port=port, synthetic=synthetic)
+    mode = BoardMode.SYNTHETIC if synthetic else BoardMode.CYTON_DAISY
+    board_config = RealtimeBoardConfig(
+        mode=mode,
+        serial_port=None if synthetic else port,
+    )
+
+    click.echo(f"Connecting to {'synthetic' if synthetic else f'Cyton+Daisy on {port}'}...")
+    board = Board(board_config)
     try:
+        board.prepare()
+        click.echo(f"Connected: {board.n_eeg_channels} channels @ {board.sample_rate} Hz")
         output_dir = config.session.data_dir / "raw"
-        data = do_record(board, duration, output_dir=output_dir)
+        data = do_record(board.shim, duration, output_dir=output_dir)
         click.echo(f"Recorded {data.shape[1]} samples to {output_dir}")
     finally:
-        disconnect(board)
+        board.release()
 
 
 @main.command("test-board")
-@click.option("--port", "-p", default=None, help="Serial port.")
+@click.option("--port", "-p", default="COM4", help="Serial port (default: COM4).")
 @click.option("--synthetic", is_flag=True, help="Use synthetic board.")
+@click.option("--duration", "-d", default=10.0, help="Test duration in seconds.")
 @click.pass_context
-def test_board(ctx, port, synthetic):
-    """Verify board connection and stream 5 seconds of test data."""
-    from openbci_eeg.acquisition.board import connect, record as do_record, disconnect, get_eeg_data
+def test_board(ctx, port, synthetic, duration):
+    """Verify board connection and stream test data."""
+    import time
+    import numpy as np
+    from openbci_eeg.acquisition.board import Board, RealtimeBoardConfig, BoardMode
 
-    config = ctx.obj["config"]
-    board = connect(config, serial_port=port, synthetic=synthetic)
+    mode = BoardMode.SYNTHETIC if synthetic else BoardMode.CYTON_DAISY
+    config = RealtimeBoardConfig(
+        mode=mode,
+        serial_port=None if synthetic else port,
+    )
+
+    click.echo(f"Connecting to {'synthetic' if synthetic else f'Cyton+Daisy on {port}'}...")
+    board = Board(config)
 
     try:
-        data = do_record(board, duration_sec=5.0)
-        eeg = get_eeg_data(data)
-        click.echo(f"Board OK: {eeg.shape[0]} channels, {eeg.shape[1]} samples")
-        click.echo(f"Data range: {eeg.min():.2f} to {eeg.max():.2f} µV")
+        board.prepare()
+        click.echo(f"Connected: {board.n_eeg_channels} channels @ {board.sample_rate} Hz")
+
+        click.echo(f"Streaming for {duration:.0f} seconds...")
+        board.start()
+        time.sleep(duration)
+        eeg, ts = board.poll()
+        board.stop()
+
+        n_samples = eeg.shape[1]
+        actual_sec = n_samples / board.sample_rate
+        click.echo(f"Received: {n_samples} samples ({actual_sec:.1f} s)")
+        click.echo(f"Data range: {eeg.min():.1f} to {eeg.max():.1f} uV")
+        click.echo("")
+
+        # Per-channel report
+        ch_names = board.channel_names
+        for i in range(eeg.shape[0]):
+            ch = eeg[i]
+            name = ch_names[i] if i < len(ch_names) else f"CH{i+1}"
+            std = ch.std()
+            status = "OK" if 1.0 < std < 500.0 else "FLAT" if std < 1.0 else "NOISY"
+            click.echo(f"  {name:4s}: mean={ch.mean():8.1f}  std={std:8.1f}  [{status}]")
+
+        # Summary
+        stds = np.array([eeg[i].std() for i in range(eeg.shape[0])])
+        good = np.sum((stds > 1.0) & (stds < 500.0))
+        click.echo(f"\n{good}/{eeg.shape[0]} channels OK")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1)
     finally:
-        disconnect(board)
+        board.release()
+        click.echo("Board released.")
 
 
 @main.command()
@@ -161,10 +208,36 @@ def upload(ctx, local_dir, subject, session):
 @click.option("--skip-upload", is_flag=True, help="Skip S3 upload.")
 @click.pass_context
 def pipeline(ctx, duration, subject, port, synthetic, skip_upload):
-    """Run full pipeline: record → preprocess → extract PN → upload."""
-    click.echo("Pipeline: record → preprocess → extract-pn → upload")
-    click.echo("(Not yet implemented — run individual commands for now)")
+    """Run full pipeline: record -> preprocess -> extract PN -> upload."""
+    click.echo("Pipeline: record -> preprocess -> extract-pn -> upload")
+    click.echo("(Not yet implemented -- run individual commands for now)")
     # TODO: chain record, preprocess, extract_pn, upload
+
+
+@main.command()
+@click.option("--mode", "-m", default="synthetic",
+              type=click.Choice(["synthetic", "cyton_daisy", "playback"]),
+              help="Board mode.")
+@click.option("--port", "-p", default=None, help="Serial port for cyton_daisy mode.")
+@click.option("--output", "-o", default=None, help="HDF5 output file path.")
+@click.option("--playback-file", default=None, help="HDF5 file for playback mode.")
+@click.option("--buffer-sec", default=30.0, help="Ring buffer length in seconds.")
+def lattice(mode, port, output, playback_file, buffer_sec):
+    """Launch real-time EEG display (Qt UI with scrolling time series)."""
+    import sys
+    sys.argv = ["lattice"]  # reset argv before Qt parses it
+    if mode:
+        sys.argv.extend(["--mode", mode])
+    if port:
+        sys.argv.extend(["--serial-port", port])
+    if output:
+        sys.argv.extend(["--output", output])
+    if playback_file:
+        sys.argv.extend(["--playback-file", playback_file])
+    sys.argv.extend(["--buffer-sec", str(buffer_sec)])
+
+    from openbci_eeg.realtime.__main__ import main as realtime_main
+    realtime_main()
 
 
 if __name__ == "__main__":

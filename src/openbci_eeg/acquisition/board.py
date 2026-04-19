@@ -1,15 +1,21 @@
 """
 OpenBCI Cyton+Daisy board connection and data streaming via BrainFlow.
 
-Usage:
-    board = connect(config)
-    data = record(board, duration_sec=60)
-    disconnect(board)
+Provides both a class-based API (`Board`) for use by the realtime subpackage
+and a functional API (`connect`, `disconnect`, `record`, `stream`) for the
+CLI and batch pipeline.
 
-Or for continuous streaming:
-    board = connect(config)
-    for chunk in stream(board, chunk_samples=256):
-        process(chunk)
+Class-based (realtime / advanced):
+    board = Board(BoardConfig(mode=BoardMode.SYNTHETIC))
+    board.prepare()
+    board.start()
+    eeg, ts = board.poll()
+    board.stop()
+    board.release()
+
+Functional (CLI / batch):
+    board = connect(config, synthetic=True)
+    data = record(board, duration_sec=60)
     disconnect(board)
 """
 
@@ -19,20 +25,181 @@ import json
 import logging
 import time
 from collections.abc import Generator
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
-from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
+from brainflow.board_shim import BoardIds, BoardShim, BrainFlowInputParams
 
-from openbci_eeg.config import BoardConfig, PipelineConfig
+from openbci_eeg.config import BoardConfig as PipelineBoardConfig, PipelineConfig
 
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Class-based API (shared core)
+# ---------------------------------------------------------------------------
+
+class BoardMode(str, Enum):
+    SYNTHETIC = "synthetic"
+    CYTON_DAISY = "cyton_daisy"
+    PLAYBACK = "playback"
+
+
+@dataclass
+class RealtimeBoardConfig:
+    """Board configuration for the realtime layer."""
+    mode: BoardMode = BoardMode.SYNTHETIC
+    serial_port: Optional[str] = None
+    playback_file: Optional[str] = None
+    master_board: Optional[int] = None
+
+
+class Board:
+    """Typed wrapper around BrainFlow's BoardShim.
+
+    Used directly by the realtime subpackage (acquisition thread, HDF5 writer,
+    UI). The functional API below delegates to this class.
+    """
+
+    def __init__(self, config: RealtimeBoardConfig) -> None:
+        self._config = config
+        params = BrainFlowInputParams()
+
+        if config.mode == BoardMode.SYNTHETIC:
+            self.board_id = BoardIds.SYNTHETIC_BOARD.value
+        elif config.mode == BoardMode.CYTON_DAISY:
+            if not config.serial_port:
+                raise ValueError("serial_port is required for CYTON_DAISY mode")
+            self.board_id = BoardIds.CYTON_DAISY_BOARD.value
+            params.serial_port = config.serial_port
+        elif config.mode == BoardMode.PLAYBACK:
+            if not config.playback_file or config.master_board is None:
+                raise ValueError("playback_file and master_board required for PLAYBACK mode")
+            self.board_id = BoardIds.PLAYBACK_FILE_BOARD.value
+            params.file = config.playback_file
+            params.master_board = config.master_board
+        else:
+            raise ValueError(f"unknown board mode: {config.mode}")
+
+        # Cyton+Daisy can take 10-15s to handshake over RF
+        if config.mode == BoardMode.CYTON_DAISY:
+            params.timeout = 30
+
+        self.params = params
+        self._shim: Optional[BoardShim] = None
+
+    # --- lifecycle ---------------------------------------------------------
+
+    def prepare(self) -> None:
+        self._shim = BoardShim(self.board_id, self.params)
+        try:
+            self._shim.prepare_session()
+        except Exception:
+            # Release immediately so the COM port isn't left locked
+            try:
+                self._shim.release_session()
+            except Exception:
+                pass
+            self._shim = None
+            raise
+
+    def start(self, buffer_samples: int = 450_000) -> None:
+        assert self._shim is not None, "call prepare() first"
+        self._shim.start_stream(buffer_samples)
+
+    def stop(self) -> None:
+        if self._shim is not None and self._shim.is_prepared():
+            try:
+                self._shim.stop_stream()
+            except Exception:
+                pass
+
+    def release(self) -> None:
+        if self._shim is not None:
+            try:
+                self._shim.release_session()
+            finally:
+                self._shim = None
+
+    # --- streaming ---------------------------------------------------------
+
+    def poll(self) -> tuple[np.ndarray, np.ndarray]:
+        """Pull all available samples since last call.
+
+        Returns (eeg_uV, timestamps). eeg shape = (n_eeg_channels, n_samples).
+        """
+        assert self._shim is not None
+        raw = self._shim.get_board_data()
+        if raw.shape[1] == 0:
+            return (
+                np.zeros((self.n_eeg_channels, 0), dtype=np.float32),
+                np.zeros(0, dtype=np.float64),
+            )
+        eeg = raw[self.eeg_channel_indices, :].astype(np.float32, copy=False)
+        ts = raw[self.timestamp_channel, :].astype(np.float64, copy=False)
+        return eeg, ts
+
+    def get_all_data(self) -> np.ndarray:
+        """Get all data from board buffer (clears buffer)."""
+        assert self._shim is not None
+        return self._shim.get_board_data()
+
+    def insert_marker(self, value: float) -> None:
+        """Insert a marker into the stream."""
+        assert self._shim is not None
+        self._shim.insert_marker(float(value))
+
+    def config_board(self, cmd: str) -> str:
+        """Send a raw config string to the board."""
+        assert self._shim is not None
+        return self._shim.config_board(cmd)
+
+    # --- metadata ---------------------------------------------------------
+
+    @property
+    def sample_rate(self) -> int:
+        return BoardShim.get_sampling_rate(self.board_id)
+
+    @property
+    def eeg_channel_indices(self) -> list[int]:
+        return BoardShim.get_eeg_channels(self.board_id)
+
+    @property
+    def n_eeg_channels(self) -> int:
+        return len(self.eeg_channel_indices)
+
+    @property
+    def timestamp_channel(self) -> int:
+        return BoardShim.get_timestamp_channel(self.board_id)
+
+    @property
+    def marker_channel(self) -> int:
+        return BoardShim.get_marker_channel(self.board_id)
+
+    @property
+    def channel_names(self) -> list[str]:
+        try:
+            return BoardShim.get_eeg_names(self.board_id)
+        except Exception:
+            return [f"CH{i + 1}" for i in range(self.n_eeg_channels)]
+
+    @property
+    def shim(self) -> BoardShim:
+        """Access the underlying BoardShim for advanced operations."""
+        assert self._shim is not None
+        return self._shim
+
+
+# ---------------------------------------------------------------------------
+# Functional API (backwards-compatible, used by CLI)
+# ---------------------------------------------------------------------------
+
 def connect(
-    config: Optional[BoardConfig | PipelineConfig] = None,
+    config: Optional[PipelineBoardConfig | PipelineConfig] = None,
     serial_port: Optional[str] = None,
     synthetic: bool = False,
 ) -> BoardShim:
@@ -51,7 +218,7 @@ def connect(
         RuntimeError: If connection fails after retries.
     """
     if config is None:
-        config = BoardConfig()
+        config = PipelineBoardConfig()
     elif isinstance(config, PipelineConfig):
         config = config.board
 
@@ -77,7 +244,7 @@ def connect(
         board.prepare_session()
         logger.info(
             "Connected to %s on %s",
-            "synthetic board" if synthetic else f"Cyton+Daisy",
+            "synthetic board" if synthetic else "Cyton+Daisy",
             params.serial_port or "N/A",
         )
     except Exception as e:
@@ -87,14 +254,12 @@ def connect(
 
 
 def disconnect(board: BoardShim) -> None:
-    """
-    Safely disconnect from board. Stops stream if active.
-    """
+    """Safely disconnect from board. Stops stream if active."""
     try:
         if board.is_prepared():
             board.stop_stream()
     except Exception:
-        pass  # Stream may not have been started
+        pass
 
     try:
         board.release_session()
@@ -157,18 +322,7 @@ def stream(
     Yield data chunks continuously from the board.
 
     Each chunk is shape (channels, chunk_samples). Yields when enough
-    samples have accumulated. Use in a for loop:
-
-        for chunk in stream(board, chunk_samples=256):
-            process(chunk)
-
-    Args:
-        board: Connected BoardShim instance.
-        chunk_samples: Number of samples per yielded chunk.
-        poll_interval_sec: Sleep between buffer polls.
-
-    Yields:
-        np.ndarray of shape (total_channels, chunk_samples).
+    samples have accumulated.
     """
     board.start_stream()
     logger.info("Streaming started (chunk_size=%d).", chunk_samples)
@@ -205,12 +359,7 @@ def get_timestamps(data: np.ndarray, board_id: int = 2) -> np.ndarray:
 
 
 def _auto_detect_port() -> str:
-    """
-    Attempt to auto-detect the OpenBCI dongle serial port.
-
-    Returns first match from common port patterns.
-    Raises RuntimeError if no port found.
-    """
+    """Attempt to auto-detect the OpenBCI dongle serial port."""
     import glob
     import platform
 
@@ -221,8 +370,6 @@ def _auto_detect_port() -> str:
     elif system == "Darwin":
         candidates = glob.glob("/dev/tty.usbserial-*")
     elif system == "Windows":
-        # BrainFlow handles COM port detection on Windows;
-        # fallback to common defaults
         candidates = ["COM3", "COM4", "COM5"]
     else:
         candidates = []
@@ -248,10 +395,8 @@ def _save_recording(
     output_dir = Path(output_dir) / session_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save raw data
     np.save(output_dir / "raw_data.npy", data)
 
-    # Save metadata
     eeg_channels = BoardShim.get_eeg_channels(board_id)
     metadata = {
         "session_id": session_id,

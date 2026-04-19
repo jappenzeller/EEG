@@ -5,6 +5,7 @@ board:
   serial_port: null           # null = auto-detect; or "/dev/ttyUSB0", "COM3", etc.
   board_id: 2                 # 2 = Cyton+Daisy (16-ch)
   sample_rate: 125
+  # Canonical wiring — see CANONICAL_WIRING.md
   channel_names:
     - Fp1
     - Fp2
@@ -12,12 +13,12 @@ board:
     - F4
     - F7
     - F8
-    - T7
-    - T8
+    - Fz
+    - Oz
     - C3
     - C4
-    - Cz
     - Pz
+    - Cz
     - P3
     - P4
     - O1
@@ -26,19 +27,19 @@ board:
     - Fp1
     - F7
     - F3
+    - Fz
     - C3
-    - T7
     - P3
     - O1
+    - Oz
     - Pz
     - O2
     - P4
-    - T8
     - C4
+    - Cz
     - F4
     - F8
     - Fp2
-    - Cz
   buffer_size: 45000          # ~6 min ring buffer
   log_level: 0                # 0=off, 1=trace, 2=debug
 

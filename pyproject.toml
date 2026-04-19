@@ -31,7 +31,15 @@ dev = [
     "mypy>=1.5.0",
 ]
 realtime = [
+    "h5py>=3.10",
+    "pyqtgraph>=0.13",
+    "PySide6>=6.6",
+]
+lsl = [
     "pylsl>=1.16.0",
+]
+audio = [
+    "sounddevice>=0.4",
 ]
 quantum = [
     "qiskit>=1.0.0",
@@ -39,6 +47,7 @@ quantum = [
 
 [project.scripts]
 openbci-eeg = "openbci_eeg.cli:main"
+lattice = "openbci_eeg.realtime.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

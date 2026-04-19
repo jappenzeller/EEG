@@ -268,7 +268,7 @@ def validate_alpha_response(
 
     if alpha_channels is None:
         # Default to occipital/parietal
-        alpha_channels = ["O1", "O2", "Pz"]
+        alpha_channels = ["O1", "O2", "P3", "P4"]
         alpha_channels = [ch for ch in alpha_channels if ch in channel_names]
         if not alpha_channels:
             alpha_channels = channel_names[:3]  # Fallback to first 3
