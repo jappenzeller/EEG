@@ -1,38 +1,61 @@
 
 !data/**/.gitkeep
-# AWS credentials (never commit)
-# Data files (keep structure, not data)
-# IDE
-# OS
-# Session configs with personal info
+
+# Python
+*.py[cod]
 *$py.class
 *.egg
 *.egg-info/
-*.py[cod]
-*.swp
-.aws/
-.aws/credentials
-.coverage
-.DS_Store
-.eggs/
-.env
-.idea/
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
-.venv/
-.vscode/
 __pycache__/
+.eggs/
 build/
-configs/local_*.yaml
+dist/
+.venv/
+venv/
+env/
+
+# Data files (keep structure, not data)
 data/processed/**/*
 data/raw/**/*.bdf
 data/raw/**/*.npy
 data/raw/**/*.npz
 data/raw/**/*.txt
+data/raw/**/*.h5
 data/results/**/*
-dist/
-env/
-htmlcov/
+
+# AWS credentials (never commit)
+.aws/
+.aws/credentials
+
+# Session configs with personal info
+configs/local_*.yaml
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
 Thumbs.db
-venv/
+*.swp
+
+# Linting / testing / coverage
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+
+# OpenBCI GUI (large Java binaries)
+OpenBCI/
+
+# Executables and archives
+*.exe
+*.dll
+*.so
+*.dylib
+*.zip
+*.tar.gz
+*.tar
+*.gz
+
+# Environment
+.env
