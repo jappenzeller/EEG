@@ -1,0 +1,20 @@
+Component classification for alpha_blink_test.h5
+Confidence threshold for rejection: 0.7
+
+ idx  label                 prob  action  
+------------------------------------------
+   0  brain                 0.52  keep    
+   1  brain                 0.52  keep    
+   2  brain                 0.52  keep    
+   3  brain                 0.52  keep    
+   4  brain                 0.52  keep    
+   5  brain                 0.52  keep    
+   6  brain                 0.52  keep    
+   7  brain                 0.52  keep    
+   8  brain                 0.52  keep    
+   9  brain                 0.52  keep    
+  10  brain                 0.52  keep    
+  11  brain                 0.52  keep    
+  12  brain                 0.52  keep    
+  13  brain                 0.52  keep    
+  14  brain                  nan  keep    
