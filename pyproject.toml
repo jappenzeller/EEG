@@ -20,6 +20,7 @@ dependencies = [
     "boto3>=1.28.0",
     "pyyaml>=6.0",
     "click>=8.1.0",
+    "scikit-learn>=1.3.0",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +50,13 @@ audio = [
 ]
 quantum = [
     "qiskit>=1.0.0",
+]
+foundation-models = [
+    "torch>=2.0",
+    "huggingface-hub>=0.20",
+]
+riemannian = [
+    "pyriemann>=0.5",
 ]
 
 [project.scripts]
