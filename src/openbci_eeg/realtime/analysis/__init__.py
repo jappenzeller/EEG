@@ -5,8 +5,10 @@ from . import ica
 from . import covariance
 from . import segmentation
 from . import polarity
+from . import triptych
 
 __all__ = [
     "signal_quality", "ica",
     "covariance", "segmentation", "polarity",
+    "triptych",
 ]
