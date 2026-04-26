@@ -42,8 +42,9 @@ def test_known_positions():
     assert channel_position(8) == "Oz"    # was T8, then Oz
     assert channel_position(11) == "Pz"   # verified 2026-04-19
     assert channel_position(12) == "Cz"   # verified 2026-04-19
+    assert channel_position(14) == "O2"   # was P4, swapped 2026-04-26
     assert channel_position(15) == "O1"
-    assert channel_position(16) == "O2"
+    assert channel_position(16) == "P4"   # was O2, swapped 2026-04-26
 
 
 def test_full_midline_spine_present():
@@ -76,6 +77,19 @@ def test_canonical_wiring_md_exists():
     assert (REPO / "CANONICAL_WIRING.md").exists(), (
         "CANONICAL_WIRING.md must exist at repo root as the single source of truth"
     )
+
+
+def test_o2_not_on_slow_channel():
+    """O2 must be on Daisy ch 14 (faster), not ch 16 (slowest)."""
+    assert CHANNEL_POSITIONS[14] == "O2"
+    assert CHANNEL_POSITIONS[16] != "O2"
+
+
+def test_bilateral_occipital_present():
+    """Both O1 and O2 must be in the montage for bilateral alpha checks."""
+    positions = set(CHANNEL_POSITIONS.values())
+    assert "O1" in positions
+    assert "O2" in positions
 
 
 def test_channel_names_matches_positions():

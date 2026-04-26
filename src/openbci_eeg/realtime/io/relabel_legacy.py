@@ -31,9 +31,15 @@ MONTAGE_VERSIONS: dict[str, dict[int, str]] = {
         9: "C3", 10: "C4", 11: "Pz", 12: "Cz",
         13: "P3", 14: "P4", 15: "O1", 16: "O2",
     },
+    "2026-04-26-o2-on-fast-channel": {
+        1: "Fp1", 2: "Fp2", 3: "F3", 4: "F4", 5: "F7", 6: "F8",
+        7: "Fz", 8: "Oz",
+        9: "C3", 10: "C4", 11: "Pz", 12: "Cz",
+        13: "P3", 14: "O2", 15: "O1", 16: "P4",
+    },
 }
 
-CURRENT_VERSION = "2026-04-19-midline"
+CURRENT_VERSION = "2026-04-26-o2-on-fast-channel"
 
 
 def relabel(

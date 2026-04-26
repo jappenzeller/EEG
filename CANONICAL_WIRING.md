@@ -3,8 +3,8 @@
 This is the single source of truth for channel -> board -> pin -> wire color -> 10-20 position.
 If any other file in this repo disagrees, it is wrong and must be corrected to match this one.
 
-Last verified against physical hardware: 2026-04-19
-Montage version: `2026-04-19-midline`
+Last verified against physical hardware: 2026-04-26
+Montage version: `2026-04-26-o2-on-fast-channel`
 
 ## Channel Map
 
@@ -23,9 +23,9 @@ Montage version: `2026-04-19-midline`
 | 11 | Daisy | N3P | blue | `#1E90FF` | Pz | midline parietal |
 | 12 | Daisy | N4P | green | `#2E8B57` | Cz | midline central |
 | 13 | Daisy | N5P | yellow | `#FFD700` | P3 | L parietal |
-| 14 | Daisy | N6P | orange | `#FF8C00` | P4 | R parietal |
+| 14 | Daisy | N6P | orange | `#FF8C00` | O2 | R occipital |
 | 15 | Daisy | N7P | red | `#D9342B` | O1 | L occipital |
-| 16 | Daisy | N8P | brown | `#8B5A2B` | O2 | R occipital |
+| 16 | Daisy | N8P | brown | `#8B5A2B` | P4 | R parietal |
 
 Full midline spine: Fz -> Cz -> Pz -> Oz.
 
@@ -56,6 +56,10 @@ T7, T8 (bilateral temporal -- dropped for midline completion), P7, P8, Oz (reser
 ### 2026-04-19-verified (previous)
 Ch 7 = T7, Ch 8 = T8, Ch 11 = Pz, Ch 12 = Cz, back BIAS at inion.
 
-### 2026-04-19-midline (current)
+### 2026-04-19-midline (previous)
 Ch 7 = Fz, Ch 8 = Oz, back BIAS at POz.
 Rationale: drop bilateral temporal (Octabolt fit issues, EMG contaminated, low A-Gate info) in favor of completing the midline spine Fz+Cz+Pz+Oz for FM-theta capture and improved posterior spatial gradient.
+
+### 2026-04-26-o2-on-fast-channel (current)
+Swap O2 and P4: ch 14 = O2 (was P4), ch 16 = P4 (was O2).
+Rationale: move O2 from slow Daisy ch 16 (brown, N8P) to faster ch 14 (orange, N6P) so bilateral occipital (O1+O2) alpha checks have matched timing. P4 is less latency-sensitive and tolerates the slower channel.

@@ -121,7 +121,7 @@ CHANNEL_POSITIONS: dict[int, str] = {
     1: "Fp1",  2: "Fp2",  3: "F3",   4: "F4",
     5: "F7",   6: "F8",   7: "Fz",   8: "Oz",
     9: "C3",  10: "C4",  11: "Pz",  12: "Cz",
-    13: "P3", 14: "P4",  15: "O1",  16: "O2",
+    13: "P3", 14: "O2",  15: "O1",  16: "P4",
 }
 
 WIRE_COLORS: dict[int, str] = {
@@ -138,9 +138,9 @@ WIRE_COLORS: dict[int, str] = {
     11: "#1E90FF",  # Pz   (Daisy ch 11, blue)
     12: "#2E8B57",  # Cz   (Daisy ch 12, green)
     13: "#FFD700",  # P3   (Daisy ch 13, yellow)
-    14: "#FF8C00",  # P4   (Daisy ch 14, orange)
+    14: "#FF8C00",  # O2   (Daisy ch 14, orange)
     15: "#D9342B",  # O1   (Daisy ch 15, red)
-    16: "#8B5A2B",  # O2   (Daisy ch 16, brown)
+    16: "#8B5A2B",  # P4   (Daisy ch 16, brown)
 }
 
 

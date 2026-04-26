@@ -32,7 +32,7 @@ from .io.hdf5_writer import HDF5Writer
 from .ui.main_window import MainWindow
 from .analysis.signal_quality import PROFILES, BENCH, CHANNEL_POSITIONS
 
-MONTAGE_VERSION = "2026-04-19-midline"
+MONTAGE_VERSION = "2026-04-26-o2-on-fast-channel"
 
 log = logging.getLogger(__name__)
 

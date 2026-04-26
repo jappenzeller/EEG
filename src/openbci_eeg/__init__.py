@@ -19,7 +19,7 @@ NYQUIST_FREQ = BOARD_SAMPLE_RATE / 2  # 62.5 Hz
 # Daisy 9-16: C3, C4, P7, P8, P3, P4, O1, O2
 CHANNEL_NAMES = [
     "Fp1", "Fp2", "F3", "F4", "F7", "F8", "Fz", "Oz",  # Cyton 1-8
-    "C3", "C4", "Pz", "Cz", "P3", "P4", "O1", "O2",    # Daisy 9-16
+    "C3", "C4", "Pz", "Cz", "P3", "O2", "O1", "P4",    # Daisy 9-16
 ]
 
 # Ring topology ordering for A-Gate CNOT chain.
